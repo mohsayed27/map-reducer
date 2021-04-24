@@ -11,7 +11,7 @@ import (
 	"sync"
 )
 
-func Frequency(words []string, ch chan map[string]int) {
+func frequency(words []string, ch chan map[string]int) {
 	m := make(map[string]int)
 	for _, word := range words {
 		m[word] += 1
@@ -47,7 +47,7 @@ func reducer(ch chan map[string]int) {
 		go addMaps(&mainMapStruct, x)
 	}
 
-	//mp := Frequency(words[:5])
+	//mp := frequency(words[:5])
 	//fmt.Println("out")
 	//fmt.Print(mainMapStruct.myMap)
 
@@ -140,7 +140,7 @@ func main() {
 		two := size * float32(i+1) / 5.0
 		mySlice := words[int(one):int(two)]
 
-		go Frequency(mySlice, ch)
+		go frequency(mySlice, ch)
 	}
 
 	reducer(ch)
