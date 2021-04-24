@@ -49,8 +49,9 @@ func channelProcessing(ch chan map[string]int) {
 		x := <-ch
 		go reducer(&mainMapStruct, x)
 	}
-
+	mainMapStruct.mu.Lock()
 	freqs := rankByWordCount(mainMapStruct.myMap)
+	mainMapStruct.mu.Unlock()
 	freqs = sortPairByValue(freqs)
 	s := ""
 	for _, pair := range freqs {
