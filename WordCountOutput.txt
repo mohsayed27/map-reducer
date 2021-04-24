@@ -4,7 +4,7 @@ of : 8
 is : 7 
 and : 6 
 system : 5 
- : 3 
+ : 4 
 collection : 3 
 components : 3 
 global : 3 
@@ -29,7 +29,6 @@ system's : 2
 they : 2 
 this : 2 
 to : 2 
- : 1 
 abstract : 1 
 activities. : 1 
 aggregate : 1 

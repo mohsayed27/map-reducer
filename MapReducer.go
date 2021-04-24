@@ -153,8 +153,7 @@ func main() {
 
 	text := string(dat)
 	text = strings.ToLower(text)
-	text = strings.ReplaceAll(text, "\n", "")
-	text = strings.ReplaceAll(text, string(13), " ")
+	text = strings.ReplaceAll(text, "\r\n", " ")
 	words := strings.Split(text, " ")
 
 	size := float32(len(words))
