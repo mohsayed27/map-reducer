@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -11,7 +10,21 @@ import (
 	"sync"
 )
 
+type SafeFreqMap struct {
+	mu    sync.Mutex
+	myMap map[string]int
+}
+
 func frequency(words []string, ch chan map[string]int) {
+	/*
+		takes strip of strings (words), then sends the frequency of each str into a channel (ch)
+
+		params
+			words : a list of strings
+			ch    : takes a map of freq of strs an the end of function
+		returns
+			null
+	*/
 	m := make(map[string]int)
 	for _, word := range words {
 		m[word] += 1
@@ -20,12 +33,33 @@ func frequency(words []string, ch chan map[string]int) {
 	return
 }
 
-type SafeFreqMap struct {
-	mu    sync.Mutex
-	myMap map[string]int
+func channelProcessing(ch chan map[string]int) {
+	/*
+		takes channel ch
+
+		params
+			ch    : takes a map of freq of strs an the end of function
+		returns
+			null
+	*/
+	mainMapStruct := SafeFreqMap{myMap: make(map[string]int)}
+	//x := [5]map[string]int{<-ch, <-ch, <-ch, <-ch, <-ch}
+
+	for i := 0; i < 5; i++ {
+		x := <-ch
+		go reducer(&mainMapStruct, x)
+	}
+
+	freqs := rankByWordCount(mainMapStruct.myMap)
+	freqs = sortPairByValue(freqs)
+	s := ""
+	for _, pair := range freqs {
+		s += strings.ReplaceAll(pair.Key, string(13), "") + " : " + strconv.Itoa(pair.Value) + " \n"
+	}
+	writeString(s)
 }
 
-func addMaps(mainMapStruct *SafeFreqMap, subMap map[string]int) {
+func reducer(mainMapStruct *SafeFreqMap, subMap map[string]int) {
 
 	mainMapStruct.mu.Lock()
 	for k, v := range subMap {
@@ -38,54 +72,42 @@ func addMaps(mainMapStruct *SafeFreqMap, subMap map[string]int) {
 	mainMapStruct.mu.Unlock()
 }
 
-func reducer(ch chan map[string]int) {
-	mainMapStruct := SafeFreqMap{myMap: make(map[string]int)}
-	x := [5]map[string]int{<-ch, <-ch, <-ch, <-ch, <-ch}
-
-	for i := 0; i < 5; i++ {
-		//x := <-ch
-		go addMaps(&mainMapStruct, x[i])
-	}
-
-	//mp := frequency(words[:5])
-	//fmt.Println("out")
-	//fmt.Print(mainMapStruct.myMap)
-
-	my_pl := rankByWordCount(mainMapStruct.myMap)
-	my_pl = sortPairByValue(my_pl)
-	s := ""
-	for _, pair := range my_pl {
-		if pair.Key == "" {
-			continue
-		}
-
-		s += strings.ReplaceAll(pair.Key, string(13), "") + " : " + strconv.Itoa(pair.Value) + " \n"
-	}
-	writeString(s)
-}
-
 func writeString(s string) {
+
 	f, err := os.Create("WordCountOutput.txt")
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
+
 	_, err = f.WriteString(s)
 	if err != nil {
-		fmt.Println(err)
-		f.Close()
-		return
+		log.Fatal(err)
 	}
 
 	err = f.Close()
 	if err != nil {
-		fmt.Println(err)
-		return
-
+		log.Fatal(err)
 	}
 }
 
+type Pair struct {
+	/*
+		to access the map contents more easily
+		for sorting
+	*/
+	Key   string
+	Value int
+}
+
+type PairList []Pair // list of pairs
+
+// utilities for sorting Pair
+func (p PairList) Len() int           { return len(p) }
+func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
+func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
 func sortPairByValue(pl PairList) PairList {
+
 	for j := 0; j < pl.Len(); j++ {
 		for i := 0; i < pl.Len()-1; i++ {
 			if pl[i].Value == pl[i+1].Value {
@@ -110,20 +132,9 @@ func rankByWordCount(wordFrequencies map[string]int) PairList {
 	return pl
 }
 
-type Pair struct {
-	Key   string
-	Value int
-}
-
-type PairList []Pair
-
-func (p PairList) Len() int           { return len(p) }
-func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
-func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
 func main() {
 	ch := make(chan map[string]int, 5)
-	//fmt.Println("Hello")
+
 	dat, err := ioutil.ReadFile("input.txt")
 	if err != nil {
 		log.Fatal(err)
@@ -133,16 +144,18 @@ func main() {
 	text = strings.ToLower(text)
 	text = strings.ReplaceAll(text, "\n", " ")
 	words := strings.Split(text, " ")
-	//fmt.Printf("%T", split)
+
 	size := float32(len(words))
 	for i := 0; i < 5; i++ {
-		one := size * float32(i) / 5.0
-		two := size * float32(i+1) / 5.0
-		mySlice := words[int(one):int(two)]
+		// splitting
+		start := size * float32(i) / 5.0
+		end := size * float32(i+1) / 5.0
+		wordsSlice := words[int(start):int(end)]
 
-		go frequency(mySlice, ch)
+		// calling go routine for current split
+		go frequency(wordsSlice, ch)
 	}
 
-	reducer(ch)
+	channelProcessing(ch)
 
 }
