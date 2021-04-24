@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"log"
 	"os"
 	"sort"
@@ -35,12 +34,15 @@ func frequency(words []string, ch chan map[string]int) {
 	ch <- m
 }
 
-func channelProcessing(ch chan map[string]int) {
+func reducer(ch chan map[string]int) {
 	/*
 		takes channel ch
+		joins all the maps of the channels
+		sorts the values
+		outputs the file
 
 		params
-			ch    : takes a map of freq of strs an the end of function
+			ch    : takes a map of freq of strs [part of data] an the end of function
 		returns
 			null
 	*/
@@ -51,9 +53,11 @@ func channelProcessing(ch chan map[string]int) {
 
 	for i := 0; i < N; i++ {
 		x := <-ch
-		go reducer(&mainMapStruct, x, ch2)
+		go mapJoin(&mainMapStruct, x, ch2)
 	}
 
+	// Like Semaphor
+	// Ensures all the threads have finished before proceeding
 	for i := 0; i < N; i++ {
 		<-ch2
 	}
@@ -68,7 +72,7 @@ func channelProcessing(ch chan map[string]int) {
 	writeString(s)
 }
 
-func reducer(mainMapStruct *SafeFreqMap, subMap map[string]int, ch2 chan int) {
+func mapJoin(mainMapStruct *SafeFreqMap, subMap map[string]int, ch2 chan int) {
 
 	mainMapStruct.mu.Lock()
 	for k, v := range subMap {
@@ -90,7 +94,6 @@ func writeString(s string) {
 	}
 
 	_, err = f.WriteString(s)
-	fmt.Print(s)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -118,7 +121,7 @@ func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
 func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func sortPairByValue(pl PairList) PairList {
-
+	// Bubble Sort
 	for j := 0; j < pl.Len(); j++ {
 		for i := 0; i < pl.Len()-1; i++ {
 			if pl[i].Value == pl[i+1].Value {
@@ -176,6 +179,6 @@ func main() {
 		go frequency(wordsSlice, ch)
 	}
 
-	channelProcessing(ch)
+	reducer(ch)
 
 }
