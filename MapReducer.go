@@ -40,11 +40,11 @@ func addMaps(mainMapStruct *SafeFreqMap, subMap map[string]int) {
 
 func reducer(ch chan map[string]int) {
 	mainMapStruct := SafeFreqMap{myMap: make(map[string]int)}
-	//x := [5]map[string]int{<-ch, <-ch, <-ch, <-ch, <-ch}
+	x := [5]map[string]int{<-ch, <-ch, <-ch, <-ch, <-ch}
 
 	for i := 0; i < 5; i++ {
-		x := <-ch
-		go addMaps(&mainMapStruct, x)
+		//x := <-ch
+		go addMaps(&mainMapStruct, x[i])
 	}
 
 	//mp := frequency(words[:5])
