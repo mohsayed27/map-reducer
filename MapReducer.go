@@ -48,24 +48,24 @@ func reducer(ch chan map[string]int) {
 	}
 
 	//mp := Frequency(words[:5])
-	fmt.Println("out")
+	//fmt.Println("out")
 	//fmt.Print(mainMapStruct.myMap)
 
 	my_pl := rankByWordCount(mainMapStruct.myMap)
 	my_pl = sortPairByValue(my_pl)
-	//s := ""
+	s := ""
 	for _, pair := range my_pl {
 		if pair.Key == "" {
 			continue
 		}
 
-		fmt.Println(pair.Key + " : " + strconv.Itoa(pair.Value)) // + " \n"
+		s += strings.ReplaceAll(pair.Key, string(13), "") + " : " + strconv.Itoa(pair.Value) + " \n"
 	}
-	//writeString(s)
+	writeString(s)
 }
 
 func writeString(s string) {
-	f, err := os.Create("output1.txt")
+	f, err := os.Create("WordCountOutput.txt")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -83,32 +83,6 @@ func writeString(s string) {
 		return
 
 	}
-}
-
-func main() {
-	ch := make(chan map[string]int, 5)
-	fmt.Println("Hello")
-	dat, err := ioutil.ReadFile("input.txt")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	text := string(dat)
-	text = strings.ToLower(text)
-	text = strings.ReplaceAll(text, "\n", " ")
-	words := strings.Split(text, " ")
-	//fmt.Printf("%T", split)
-	size := float32(len(words))
-	for i := 0; i < 5; i++ {
-		one := size * float32(i) / 5.0
-		two := size * float32(i+1) / 5.0
-		mySlice := words[int(one):int(two)]
-
-		go Frequency(mySlice, ch)
-	}
-
-	reducer(ch)
-
 }
 
 func sortPairByValue(pl PairList) PairList {
@@ -146,3 +120,29 @@ type PairList []Pair
 func (p PairList) Len() int           { return len(p) }
 func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
 func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+func main() {
+	ch := make(chan map[string]int, 5)
+	//fmt.Println("Hello")
+	dat, err := ioutil.ReadFile("input.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	text := string(dat)
+	text = strings.ToLower(text)
+	text = strings.ReplaceAll(text, "\n", " ")
+	words := strings.Split(text, " ")
+	//fmt.Printf("%T", split)
+	size := float32(len(words))
+	for i := 0; i < 5; i++ {
+		one := size * float32(i) / 5.0
+		two := size * float32(i+1) / 5.0
+		mySlice := words[int(one):int(two)]
+
+		go Frequency(mySlice, ch)
+	}
+
+	reducer(ch)
+
+}
