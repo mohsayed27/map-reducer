@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -12,17 +13,12 @@ import (
 
 const N = 5
 
-type SafeCounter struct {
-	mu      sync.Mutex
-	counter int
-}
-
 type SafeFreqMap struct {
 	mu    sync.Mutex
 	myMap map[string]int
 }
 
-func frequency(words []string, ch chan map[string]int, mySafeCounter *SafeCounter, N int) {
+func frequency(words []string, ch chan map[string]int) {
 	/*
 		takes strip of strings (words), then sends the frequency of each str into a channel (ch)
 
@@ -37,13 +33,6 @@ func frequency(words []string, ch chan map[string]int, mySafeCounter *SafeCounte
 		m[word] += 1
 	}
 	ch <- m
-	mySafeCounter.mu.Lock()
-	mySafeCounter.counter += 1
-	if mySafeCounter.counter >= N {
-		close(ch)
-	}
-	mySafeCounter.mu.Unlock()
-	return
 }
 
 func channelProcessing(ch chan map[string]int) {
@@ -55,25 +44,31 @@ func channelProcessing(ch chan map[string]int) {
 		returns
 			null
 	*/
+
+	ch2 := make(chan int)
 	mainMapStruct := SafeFreqMap{myMap: make(map[string]int)}
 	//x := [5]map[string]int{<-ch, <-ch, <-ch, <-ch, <-ch}
 
 	for i := 0; i < N; i++ {
 		x := <-ch
-		go reducer(&mainMapStruct, x)
+		go reducer(&mainMapStruct, x, ch2)
 	}
-	mainMapStruct.mu.Lock()
+
+	for i := 0; i < N; i++ {
+		<-ch2
+	}
+
 	freqs := rankByWordCount(mainMapStruct.myMap)
-	mainMapStruct.mu.Unlock()
 	freqs = sortPairByValue(freqs)
+
 	s := ""
 	for _, pair := range freqs {
-		s += strings.ReplaceAll(pair.Key, string(13), "") + " : " + strconv.Itoa(pair.Value) + " \n"
+		s += pair.Key + " : " + strconv.Itoa(pair.Value) + " \n"
 	}
 	writeString(s)
 }
 
-func reducer(mainMapStruct *SafeFreqMap, subMap map[string]int) {
+func reducer(mainMapStruct *SafeFreqMap, subMap map[string]int, ch2 chan int) {
 
 	mainMapStruct.mu.Lock()
 	for k, v := range subMap {
@@ -84,6 +79,7 @@ func reducer(mainMapStruct *SafeFreqMap, subMap map[string]int) {
 		}
 	}
 	mainMapStruct.mu.Unlock()
+	ch2 <- 1
 }
 
 func writeString(s string) {
@@ -94,6 +90,7 @@ func writeString(s string) {
 	}
 
 	_, err = f.WriteString(s)
+	fmt.Print(s)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -156,10 +153,9 @@ func main() {
 
 	text := string(dat)
 	text = strings.ToLower(text)
-	text = strings.ReplaceAll(text, "\n", " ")
+	text = strings.ReplaceAll(text, "\n", "")
+	text = strings.ReplaceAll(text, string(13), " ")
 	words := strings.Split(text, " ")
-
-	mySafeCounter := SafeCounter{counter: 0}
 
 	size := float32(len(words))
 	for i := 0; i < N; i++ {
@@ -169,7 +165,7 @@ func main() {
 		wordsSlice := words[int(start):int(end)]
 
 		// calling go routine for current split
-		go frequency(wordsSlice, ch, &mySafeCounter, N)
+		go frequency(wordsSlice, ch)
 	}
 
 	channelProcessing(ch)
