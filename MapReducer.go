@@ -1,8 +1,8 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"sort"
@@ -146,15 +146,24 @@ func rankByWordCount(wordFrequencies map[string]int) PairList {
 func main() {
 	ch := make(chan map[string]int, N)
 
-	dat, err := ioutil.ReadFile("input.txt")
+	file, err := os.Open("input.txt")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	text := string(dat)
-	text = strings.ToLower(text)
-	text = strings.ReplaceAll(text, "\r\n", " ")
-	words := strings.Split(text, " ")
+	scanner := bufio.NewScanner(file)
+	words := []string{}
+	for scanner.Scan() {
+		line := scanner.Text()
+		line = strings.ToLower(line)
+		words = append(words, (strings.Split(line, " "))...)
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	file.Close()
 
 	size := float32(len(words))
 	for i := 0; i < N; i++ {
