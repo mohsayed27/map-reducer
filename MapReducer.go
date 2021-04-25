@@ -179,6 +179,6 @@ func main() {
 		go frequency(wordsSlice, ch)
 	}
 
-	reducer(ch)
+	go reducer(ch)
 
 }
