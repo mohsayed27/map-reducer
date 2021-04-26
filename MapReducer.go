@@ -12,9 +12,9 @@ import (
 
 const N = 5
 
-type SafeFreqMap struct {
+type SafeMap struct {
 	mu    sync.Mutex
-	myMap map[string]int
+	sfmap map[string]int
 }
 
 func frequency(words []string, ch chan map[string]int) {
@@ -34,7 +34,7 @@ func frequency(words []string, ch chan map[string]int) {
 	ch <- m
 }
 
-func reducer(ch chan map[string]int) {
+func reducer(ch chan map[string]int, wg *sync.WaitGroup) {
 	/*
 		takes channel ch
 		joins all the maps of the channels
@@ -43,13 +43,10 @@ func reducer(ch chan map[string]int) {
 
 		params
 			ch    : takes a map of freq of strs [part of data] an the end of function
-		returns
-			null
 	*/
 
-	ch2 := make(chan int)
-	mainMapStruct := SafeFreqMap{myMap: make(map[string]int)}
-	//x := [5]map[string]int{<-ch, <-ch, <-ch, <-ch, <-ch}
+	ch2 := make(chan int) // Channel to ensure all threads are done joining
+	mainMapStruct := SafeMap{sfmap: make(map[string]int)}
 
 	for i := 0; i < N; i++ {
 		x := <-ch
@@ -59,36 +56,49 @@ func reducer(ch chan map[string]int) {
 	// Like Semaphor
 	// Ensures all the threads have finished before proceeding
 	for i := 0; i < N; i++ {
-		<-ch2
+		<-ch2 // Receive Done Signal
 	}
 
-	freqs := rankByWordCount(mainMapStruct.myMap)
+	freqs := rankByWordCount(mainMapStruct.sfmap)
 	freqs = sortPairByValue(freqs)
 
 	s := ""
 	for _, pair := range freqs {
 		s += pair.Key + " : " + strconv.Itoa(pair.Value) + " \n"
 	}
-	writeString(s)
+	writeString(s, "WordCountOutput.txt")
+
+	defer wg.Done()
 }
 
-func mapJoin(mainMapStruct *SafeFreqMap, subMap map[string]int, ch2 chan int) {
+func mapJoin(mainMapStruct *SafeMap, subMap map[string]int, ch2 chan int) {
+	/*
+		function Joins the threaded freuency map to the main map
+		params:
+		mainMapStruct : The Map of type SafeMap
+	*/
 
 	mainMapStruct.mu.Lock()
 	for k, v := range subMap {
-		if val, ok := mainMapStruct.myMap[k]; ok {
-			mainMapStruct.myMap[k] = val + v
+		if val, ok := mainMapStruct.sfmap[k]; ok {
+			mainMapStruct.sfmap[k] = val + v
 		} else {
-			mainMapStruct.myMap[k] = v
+			mainMapStruct.sfmap[k] = v
 		}
 	}
 	mainMapStruct.mu.Unlock()
-	ch2 <- 1
+	ch2 <- 1 // Send Done Signal
 }
 
-func writeString(s string) {
+func writeString(s, pth string) {
+	/*
+		fuction writes generated string into required txt file
+		params:
+		s : required string
+		pth : text path
+	*/
 
-	f, err := os.Create("WordCountOutput.txt")
+	f, err := os.Create(pth)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -146,16 +156,26 @@ func rankByWordCount(wordFrequencies map[string]int) PairList {
 	return pl
 }
 
-func main() {
-	ch := make(chan map[string]int, N)
+func getWordsfromtxt(pth string) []string {
+	/*
+		functions makes a text file into words
 
-	file, err := os.Open("input.txt")
+		params
+		pth : string contains path to the text file
+
+		return
+		a words list (slice), contains all the words in the string
+		words is define by (strings separated spaces)
+		words is not case sentive
+	*/
+	file, err := os.Open(pth)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	scanner := bufio.NewScanner(file)
 	words := []string{}
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		line = strings.ToLower(line)
@@ -167,6 +187,14 @@ func main() {
 	}
 
 	file.Close()
+	return words
+}
+
+func main() {
+	var wg sync.WaitGroup
+	ch := make(chan map[string]int, 5)
+
+	words := getWordsfromtxt("test.txt")
 
 	size := float32(len(words))
 	for i := 0; i < N; i++ {
@@ -179,6 +207,14 @@ func main() {
 		go frequency(wordsSlice, ch)
 	}
 
-	go reducer(ch)
+	wg.Add(1) // *
+	/*
+		* it is enough to add the number of reducers(1) to wait for,
+		as reducers wait for the frequency threads by default
+	*/
+
+	go reducer(ch, &wg)
+
+	wg.Wait()
 
 }
